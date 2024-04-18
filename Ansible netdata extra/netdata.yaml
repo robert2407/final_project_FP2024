@@ -1,0 +1,42 @@
+---
+- name: Install
+  hosts: app.fiipractic.lan
+  become: true
+  tasks:
+    - name: Install Netdata
+      git:
+        repo: "https://github.com/netdata/netdata.git"
+        dest: "/opt/netdata"
+
+    - name: Install Nginx
+      yum:
+        name: nginx
+        
+    - name: Start Nginx
+      service:
+        name: nginx
+        state: started
+
+    - name: Nginx reverse proxy = Netdata
+      copy:
+        content: |
+          server {
+            listen 80;
+            server_name netdata.fiipractic.lan;
+
+            location / {
+              proxy_pass http://localhost:19999/;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection 'upgrade';
+              proxy_set_header Host $host;
+              proxy_cache_bypass $http_upgrade;
+            }
+          }
+        dest: /etc/nginx/sites-available/netdata
+
+    - name: Nginx config is enabled
+      file:
+        src: /etc/nginx/sites-available/netdata
+        dest: /etc/nginx/sites-enabled/netdata
+        state: link
