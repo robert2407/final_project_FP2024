@@ -1,0 +1,60 @@
+---
+- name: Common
+  hosts: all
+  become: yes
+  tasks:
+    - name: Disable firewalld
+      systemd:
+        name: firewalld
+        enabled: no
+        state: stopped
+
+    - name: Set timezone
+      timezone:
+        name: Europe/Bucharest
+        
+    - name: Set PermitRootLogin
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin prohibit-password'
+        state: present
+      
+    - name: Install Docker repo
+      command: sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+    - name: Install Docker packs
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - docker-compose-plugin
+
+    - name: Start Docker services
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Copy CA from app.fiipractic.lan
+      copy:
+        src: /root/Ansible/ca.crt
+        dest: /etc/ssl/certs/ca-certificates.crt
+      # Am copiat certificatul din app.fiipractic.lan in Folderul de Ansible din gitlab pentru a fi mai usor, oricum nu se modifica des.
+
+- name: GitLab
+  hosts: gitlab.fiipractic.lan
+  become: yes
+  tasks:
+    - name: Install gitlab-runner
+      yum:
+        name: gitlab-runner
+        state: present
+
+    - name: Install gitlab-ce
+      yum:
+        name: gitlab-ce
+        state: present
